@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/tehapo/Clara.png)](http://travis-ci.org/tehapo/Clara)
+
 ![Clara](https://github.com/tehapo/Clara/raw/99386831b5c2f3fc1e916180b1b60c796c2cd0ad/dist/img/clara-logo-150x174.png)
 
 ## Clara - Declarative UI and Bindings for Vaadin Framework
@@ -25,9 +27,6 @@ Packaging the distributable add-on zip (that can be uploaded to Vaadin Directory
 cd clara
 mvn clean package assembly:single
 ```
-
-
-[![Build Status](https://secure.travis-ci.org/tehapo/Clara.png)](http://travis-ci.org/tehapo/Clara)
 
 ## License
 
@@ -128,4 +127,46 @@ AttributeFilter filter = new AttributeFilter() {
         }
     }
 };
+```
+
+## Advanced control over component creation
+
+### ```ClaraBuilder```
+
+Occasionally you need extra control over the creation of the component tree. The class ```ClaraBuilder``` supports adding ```AttributeFilter``` and extra ```AttributeParser``` instances. 
+
+You can also set a common prefix that is used for all ids read from the XML definition. The primary use case for setting an id prefix is to be able to generate page-wide unique ids in combination with custom, reusable components that use Clara internally to build themselves; it is advisable to combine this with ```InflaterListener```.
+
+An example of using ```ClaraBuilder```:
+
+```java
+Clara.build()
+        .withController(this)
+        .withIdPrefix("example.")
+        .withAttributeFilter(new InternationalizationFilter())
+        .withAttributeParser(new ResourceParser())
+        .createFrom("example-ui.xml");
+```
+
+When you use an id prefix, the binding with the ```@UiField```, ```@UiHandler``` and ```@UiDataSource``` still use the id without prefix (that is: the id defined in the XML).
+
+### ```InflaterListener```
+
+Components can be notified by Clara when they have been fully constructed, all their children have been created and all attributes have been set by implementing ```org.vaadin.teemu.clara.inflater.InflaterListener```. This allows a component to do additional construction work that requires knowledge of - for example - the attribute values set from XML.
+
+As an example, a custom component that itself uses Clara for its definition could build its component tree from the ```InflaterListener#componentInflated()``` method and use its own id as the id prefix. This can help with creating page-wide unique ids.
+
+An example:
+
+```java
+public class SomeCustomComponent extend CustomComponent implements InflaterListener {
+    @Override
+    public void componentInflated() {
+        Component root = Clara.build()
+                .withIdPrefix(getId())
+                .withController(this)
+                .createFrom("SomeCustomComponent.xml")
+         setCompositionRoot(root);
+    }
+}
 ```

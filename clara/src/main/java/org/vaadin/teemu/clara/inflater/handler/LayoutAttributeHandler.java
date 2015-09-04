@@ -4,6 +4,7 @@ import static org.vaadin.teemu.clara.util.ReflectionUtils.findMethods;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -19,7 +20,12 @@ public class LayoutAttributeHandler extends AttributeHandler {
     private static final String LAYOUT_ATTRIBUTE_NAMESPACE = "urn:vaadin:parent";
 
     public LayoutAttributeHandler(List<AttributeFilter> attributeFilters) {
-        super(attributeFilters);
+        this(attributeFilters, Collections.<AttributeParser> emptyList());
+    }
+
+    public LayoutAttributeHandler(List<AttributeFilter> attributeFilters,
+            List<AttributeParser> attributeParsers) {
+        super(attributeFilters, attributeParsers);
     }
 
     @Override
@@ -60,7 +66,7 @@ public class LayoutAttributeHandler extends AttributeHandler {
         } catch (IllegalAccessException e) {
             throw new AttributeHandlerException(e);
         } catch (InvocationTargetException e) {
-            throw new AttributeHandlerException(e);
+            throw new AttributeHandlerException(e.getCause());
         }
     }
 

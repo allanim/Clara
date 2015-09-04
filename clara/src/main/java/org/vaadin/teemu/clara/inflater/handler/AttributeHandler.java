@@ -4,6 +4,7 @@ import static org.vaadin.teemu.clara.util.ReflectionUtils.findMethods;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -12,15 +13,17 @@ import java.util.Map;
 
 import org.vaadin.teemu.clara.inflater.filter.AttributeContext;
 import org.vaadin.teemu.clara.inflater.filter.AttributeFilter;
+import org.vaadin.teemu.clara.inflater.filter.AttributeFilterException;
 import org.vaadin.teemu.clara.inflater.parser.AttributeParser;
 import org.vaadin.teemu.clara.inflater.parser.ComponentPositionParser;
 import org.vaadin.teemu.clara.inflater.parser.EnumAttributeParser;
 import org.vaadin.teemu.clara.inflater.parser.PrimitiveAttributeParser;
 import org.vaadin.teemu.clara.inflater.parser.VaadinAttributeParser;
-import org.vaadin.teemu.clara.util.MethodComparator;
+import org.vaadin.teemu.clara.util.MethodsByDeprecationComparator;
 import org.vaadin.teemu.clara.util.ReflectionUtils.ParamCount;
 
 import com.vaadin.ui.Component;
+import com.vaadin.ui.Field;
 
 public class AttributeHandler {
 
@@ -28,20 +31,27 @@ public class AttributeHandler {
     private final List<AttributeFilter> attributeFilters;
 
     public AttributeHandler(List<AttributeFilter> attributeFilters) {
+        this(attributeFilters, Collections.<AttributeParser> emptyList());
+    }
+
+    public AttributeHandler(List<AttributeFilter> attributeFilters,
+            List<AttributeParser> extraAttributeParsers) {
         this.attributeFilters = attributeFilters;
 
-        // Setup the default AttributeHandlers.
+        // Setup the default AttributeParsers.
         attributeParsers.add(new PrimitiveAttributeParser());
         attributeParsers.add(new VaadinAttributeParser());
         attributeParsers.add(new EnumAttributeParser());
         attributeParsers.add(new ComponentPositionParser());
+        // Add extra AttributeParsers
+        attributeParsers.addAll(extraAttributeParsers);
     }
 
     /**
      * Returns the namespace of attributes this {@link AttributeHandler} is
      * interested in.
-     * 
-     * @return
+     *
+     * @return XML namespace this handler is responsible for.
      */
     public String getNamespace() {
         return ""; // default namespace
@@ -49,9 +59,11 @@ public class AttributeHandler {
 
     /**
      * Assigns the given attributes to the given {@link Component}.
-     * 
+     *
      * @param component
+     *            {@link Component} instance to assign the attributes.
      * @param attributes
+     *            {@link Map} of attributes to assign.
      */
     public void assignAttributes(Component component,
             Map<String, String> attributes) {
@@ -84,10 +96,20 @@ public class AttributeHandler {
                             } else {
                                 // Ask the AttributeHandler to convert the
                                 // value.
+                                Class<?> valueType = setter.getParameterTypes()[0];
+                                if (component instanceof Field
+                                        && valueType == Object.class
+                                        && setter.getName().equals("setValue")) {
+                                    // Special handling for Field.setValue with
+                                    // unknown type -> get the actual generic
+                                    // type of the field.
+                                    valueType = (Class<?>) (((ParameterizedType) component
+                                            .getClass().getGenericSuperclass())
+                                            .getActualTypeArguments()[0]);
+                                }
                                 invokeWithAttributeFilters(setter, component,
                                         parser.getValueAs(attributeValue,
-                                                setter.getParameterTypes()[0],
-                                                component));
+                                                valueType, component));
                             }
                         }
                     }
@@ -100,7 +122,7 @@ public class AttributeHandler {
         } catch (IllegalAccessException e) {
             throw new AttributeHandlerException(e);
         } catch (InvocationTargetException e) {
-            throw new AttributeHandlerException(e);
+            throw new AttributeHandlerException(e.getCause());
         }
     }
 
@@ -119,17 +141,24 @@ public class AttributeHandler {
                     args.length > 1 ? args[1] : args[0]) {
 
                 @Override
-                public void proceed() throws Exception {
+                public void proceed() throws AttributeFilterException {
                     if (filtersCopy.size() > 0) {
                         // More filters -> invoke them.
                         filtersCopy.pop().filter(this);
                     } else {
                         // No more filters -> time to invoke the actual
                         // method.
-                        if (args.length > 1) {
-                            methodToInvoke.invoke(obj, args[0], this.getValue());
-                        } else {
-                            methodToInvoke.invoke(obj, this.getValue());
+                        try {
+                            if (args.length > 1) {
+                                methodToInvoke.invoke(obj, args[0],
+                                        this.getValue());
+                            } else {
+                                methodToInvoke.invoke(obj, this.getValue());
+                            }
+                        } catch (IllegalAccessException e) {
+                            throw new AttributeFilterException(e);
+                        } catch (InvocationTargetException e) {
+                            throw new AttributeFilterException(e);
                         }
                     }
                 }
@@ -176,7 +205,8 @@ public class AttributeHandler {
      * Comparator to sort {@link Method}s into a preferred ordering taking into
      * account available parsers in addition to method deprecation.
      */
-    private class ParserAwareMethodComparator extends MethodComparator {
+    private class ParserAwareMethodComparator extends
+            MethodsByDeprecationComparator {
 
         private Class<?> getPropertyClass(Method method) {
             Class<?>[] parameterTypes = method.getParameterTypes();

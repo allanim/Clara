@@ -8,9 +8,8 @@ import java.util.Collections;
 import java.util.List;
 
 import org.junit.Test;
-import org.vaadin.teemu.clara.util.MethodComparator;
 
-public class MethodComparatorTest {
+public class MethodsByDeprecationComparatorTest {
 
     private interface InterfaceToTest {
         void test();
@@ -25,7 +24,7 @@ public class MethodComparatorTest {
     public void testMethodComparator() {
         List<Method> methods = Arrays
                 .asList(InterfaceToTest.class.getMethods());
-        Collections.sort(methods, new MethodComparator());
+        Collections.sort(methods, new MethodsByDeprecationComparator());
 
         // Deprecated method is now last.
         assertEquals(methods.get(2).getName(), "test2");

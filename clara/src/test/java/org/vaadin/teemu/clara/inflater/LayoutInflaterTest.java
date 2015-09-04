@@ -1,6 +1,7 @@
 package org.vaadin.teemu.clara.inflater;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -20,6 +21,7 @@ import com.vaadin.shared.ui.label.ContentMode;
 import com.vaadin.ui.AbsoluteLayout;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
+import com.vaadin.ui.CheckBox;
 import com.vaadin.ui.Component;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.Panel;
@@ -57,7 +59,7 @@ public class LayoutInflaterTest {
 
         // check attributes
         assertEquals("My Button", button.getCaption());
-        assertEquals(true, button.isReadOnly());
+        assertEquals(1, button.getTabIndex());
     }
 
     @Test
@@ -197,11 +199,7 @@ public class LayoutInflaterTest {
                         attributeContext.setValue("filteredValue");
                     }
                 }
-                try {
-                    attributeContext.proceed();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                attributeContext.proceed();
             }
         };
 
@@ -230,6 +228,12 @@ public class LayoutInflaterTest {
         assertEquals(null, Clara.findComponentById(view, "non-existing-id"));
     }
 
+    @Test
+    public void inflate_checkBox_valueTrue() {
+        CheckBox checkBox = (CheckBox) inflater.inflate(getXml("checkbox.xml"));
+        assertEquals(true, checkBox.getValue());
+    }
+
     @Test(expected = LayoutInflaterException.class)
     public void inflate_nonComponent_exceptionThrown() {
         inflater.inflate(getXml("non-component.xml"));
@@ -255,4 +259,21 @@ public class LayoutInflaterTest {
     public void inflate_invalidXml_exceptionThrown() {
         inflater.inflate(new ByteArrayInputStream("THIS IS NOT XML!".getBytes()));
     }
+
+    @Test
+    public void inflate_inflaterListener_called() {
+        VerticalLayoutWithInflaterListener layout = (VerticalLayoutWithInflaterListener) inflater
+                .inflate(getXml("component-with-inflaterlistener.xml"));
+
+        assertTrue("Expected componentInflated to have been called",
+                layout.isComponentInflatedCalled());
+        assertEquals(
+                "Expected id to have been set before call to componentInflated",
+                "idOfVerticalLayoutWithInflaterListener",
+                layout.getIdAfterInflate());
+        assertEquals(
+                "Expected child components to have been added before componentInflated",
+                1, layout.getComponentCountAfterInflate());
+    }
+
 }

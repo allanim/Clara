@@ -2,6 +2,7 @@ package org.vaadin.teemu.clara;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -190,6 +191,11 @@ public class ClaraTest {
         assertNull(c);
     }
 
+    @Test
+    public void testBuild_nonNullResult() {
+        assertNotNull(Clara.build());
+    }
+
     private InputStream getXml(String fileName) {
         return getClass().getClassLoader().getResourceAsStream(fileName);
     }
@@ -205,11 +211,7 @@ public class ClaraTest {
                         attributeContext.setValue("filteredValue");
                     }
                 }
-                try {
-                    attributeContext.proceed();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                attributeContext.proceed();
             }
         };
     }
@@ -225,11 +227,7 @@ public class ClaraTest {
                         attributeContext.setValue("filteredTwice");
                     }
                 }
-                try {
-                    attributeContext.proceed();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                attributeContext.proceed();
             }
         };
     }
